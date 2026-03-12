@@ -1,4 +1,4 @@
-name: Arch Linux CI
+name: build proot static
 on:
   workflow_dispatch:
 
