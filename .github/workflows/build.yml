@@ -1,18 +1,10 @@
 name: Arch Linux CI
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'PKGBUILD'
-  pull_request:
-    paths:
-      - 'PKGBUILD'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
     steps:
     
       - name: Checkout repository
@@ -20,20 +12,31 @@ jobs:
         
       - name: Install dependencies
         run: |
-          pacman -Sy --noconfirm base-devel busybox 
-          useradd build
-          chown -R build .
-          su build -c 'makepkg -s'
-          PKGN=$(grep -Po "^pkgname=['\"]?\K[^'\"]+" PKGBUILD)
-          echo "PKG=${PKGN}" >> $GITHUB_ENV
-          echo "FILE1=$(realpath *.tar.zst)" >> $GITHUB_ENV
+          sudo apt install build-essential pkg-config libtalloc-dev wget -y 
+          wget https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+          unzip android-ndk-r26d-linux.zip
+          export NDK=$HOME/android-ndk-r26d
+          export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+          export TARGET=aarch64-linux-android
+          export API=21
+          export CC=$TOOLCHAIN/bin/${TARGET}${API}-clang
+          export CXX=$TOOLCHAIN/bin/${TARGET}${API}-clang++
+          export AR=$TOOLCHAIN/bin/llvm-ar
+          export AS=$CC
+          export LD=$TOOLCHAIN/bin/ld
+          export STRIP=$TOOLCHAIN/bin/llvm-strip
+          export PATH=$TOOLCHAIN/bin:$PATH
+          git clone https://github.com/proot-me/proot --depth=1
+          cd proot/src
+          LDFLAGS="-static" make
+          echo "FILE1=$(realpath $HOME/proot/src/proot)" >> $GITHUB_ENV
 
           
 
       - name: Create GitHub Release and Upload ZIP
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.PKG }}
+          tag_name: latest
           files: |
             ${{ env.FILE1 }}
         env:
